@@ -1,379 +1,410 @@
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 /* ============================================================
-   0. UTILS
+   1. DADOS EDITÁVEIS
+   Para adicionar um projeto ou ferramenta, edite só estas listas.
    ============================================================ */
-const yearEl = document.getElementById('year');
-if (yearEl) {
-  yearEl.textContent = new Date().getFullYear();
+const TOOLS = [
+  { name: 'Power BI', icon: 'logo-powerbi.png' },
+  { name: 'DAX', icon: 'Dax.png' },
+  { name: 'Power Query', icon: 'Query.png' },
+  { name: 'SQL', icon: 'logo-sql.png' },
+  { name: 'Python', icon: 'logo-python.png' },
+  { name: 'Excel', icon: 'logo-excel.png' },
+  { name: 'ETL', icon: 'logo-etl.png' },
+  { name: 'n8n', icon: 'logo-n8n.png' },
+  { name: 'Claude', icon: 'Claude.png' },
+  { name: 'ChatGPT', icon: 'chat-gpt.png' }
+];
+
+// demo e repo são opcionais: o link só aparece se tiver endereço.
+const PROJECTS = [
+  {
+    title: 'Implantação de Power BI',
+    desc: 'Centralizei dados que estavam distribuídos entre Excel, SQL e SharePoint. Modelagem, relacionamentos e medidas DAX reduziram em 80% o tempo de atualização dos relatórios.',
+    note: 'Dados alterados para números fictícios.',
+    tags: ['Power BI', 'SQL', 'Excel'],
+    image: 'Implantação de Power BI.png',
+    demo: '',
+    repo: ''
+  },
+  {
+    title: 'Automação de processos com n8n',
+    desc: 'Fluxos automáticos de atendimento via WhatsApp, processamento de imagens, comunicação interna e integração de sistemas, reduzindo tarefas manuais e padronizando processos.',
+    note: '',
+    tags: ['n8n', 'Automação'],
+    image: 'Automação de Processos com n8n.png',
+    demo: '',
+    repo: ''
+  },
+  {
+    title: 'Painéis de vendas e estoque',
+    desc: 'Reativação e desenvolvimento de dashboards de vendas na Softplan, com medidas DAX, consultas SQL e rotinas em Python, dando visão rápida de desempenho por vendedor e produto.',
+    note: 'Dados e logo alterados para números fictícios.',
+    tags: ['Power BI', 'DAX', 'SQL', 'Python'],
+    image: 'Painéis de Vendas e Estoque.png',
+    demo: '',
+    repo: ''
+  }
+];
+
+const OWNER_WHATSAPP = '5561991333574';
+
+/* Escapa texto antes de inserir em HTML */
+function esc(str = '') {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /* ============================================================
-   1. PARTICLE MESH BACKGROUND (canvas)
+   2. ANO NO RODAPÉ
    ============================================================ */
-(function particles() {
-  const canvas = document.getElementById('bg-canvas');
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-  let w, h, dpr, points = [];
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    w = canvas.width = window.innerWidth * dpr;
-    h = canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-
-    const count = Math.min(90, Math.floor((window.innerWidth * window.innerHeight) / 18000));
-    points = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.35 * dpr,
-      vy: (Math.random() - 0.5) * 0.35 * dpr,
-      r: (Math.random() * 1.4 + 0.6) * dpr
-    }));
-  }
-
-  function step() {
-    ctx.clearRect(0, 0, w, h);
-    const linkDist = 150 * dpr;
-
-    for (const p of points) {
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x < 0 || p.x > w) p.vx *= -1;
-      if (p.y < 0 || p.y > h) p.vy *= -1;
-    }
-
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) {
-        const a = points[i];
-        const b = points[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < linkDist) {
-          const alpha = (1 - dist / linkDist) * 0.35;
-          ctx.strokeStyle = `rgba(103,232,249,${alpha})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
-      }
-    }
-
-    for (const p of points) {
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(168,85,247,0.85)';
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (!reduceMotion) requestAnimationFrame(step);
-  }
-
-  window.addEventListener('resize', resize);
-  resize();
-  step();
-
-  if (reduceMotion) {
-    step();
-  }
-})();
+const yearEl = $('#year');
+if (yearEl) yearEl.textContent = new Date().getFullYear();
 
 /* ============================================================
-   2. FADE-UP REVEAL ON SCROLL (Global)
+   3. CABEÇALHO: borda ao rolar + menu mobile + seção ativa
    ============================================================ */
-window.initScrollReveal = function(elementsToObserve) {
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((e) => {
-      if (e.isIntersecting) {
-        e.target.classList.add('in');
-        io.unobserve(e.target);
+(function header() {
+  const headerEl = $('.site-header');
+  const toggle = $('.menu-toggle');
+  const nav = $('#menu-principal');
+  if (!headerEl || !nav) return;
+
+  const onScroll = () => headerEl.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  function setMenu(open) {
+    nav.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  }
+
+  if (toggle) {
+    toggle.addEventListener('click', () => setMenu(toggle.getAttribute('aria-expanded') !== 'true'));
+    $$('a', nav).forEach((a) => a.addEventListener('click', () => setMenu(false)));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && nav.classList.contains('open')) {
+        setMenu(false);
+        toggle.focus();
       }
     });
-  }, { threshold: 0.1 });
+    document.addEventListener('click', (e) => {
+      if (nav.classList.contains('open') && !nav.contains(e.target) && !toggle.contains(e.target)) setMenu(false);
+    });
+  }
 
-  const els = elementsToObserve || document.querySelectorAll('.reveal');
-  els.forEach((el) => {
-    el.classList.add('reveal');
-    io.observe(el);
-  });
-};
+  // Destaca no menu a seção que está na tela
+  const links = $$('a[href^="#"]', nav);
+  const sections = links.map((a) => $(a.getAttribute('href'))).filter(Boolean);
+  if (!('IntersectionObserver' in window) || !sections.length) return;
 
-// Inicializa para os elementos já estáticos do HTML
-window.initScrollReveal();
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      links.forEach((a) => {
+        const active = a.getAttribute('href') === '#' + entry.target.id;
+        a.classList.toggle('active', active);
+        if (active) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
 
-/* ============================================================
-   3. TECH MARQUEE — build + duplicate for seamless loop
-   ============================================================ */
-(function marquee() {
-  const techs = [
-    { n: 'Power BI', c: '#F2C811', png: 'logo-powerbi.png' },
-    { n: 'Python', c: '#3776AB', png: 'logo-python.png' },
-    { n: 'SQL', c: '#00B4D8', png: 'logo-sql.png' },
-    { n: 'Excel', c: '#21A366', png: 'logo-excel.png' },
-    { n: 'DAX', c: '#F2C811', png: 'Dax.png' },
-    { n: 'ETL', c: '#67E8F9', png: 'logo-etl.png' },
-    { n: 'Claude', c: '#D97757', ai: true, png: 'Claude.png' },
-    { n: 'ChatGPT', c: '#10A37F', ai: true, png: 'chat-gpt.png' },
-    { n: 'Power Query', c: '#F2C811', png: 'Query.png' },
-    { n: 'n8n', c: '#EA4B71', png: 'logo-n8n.png' }
-  ];
-
-  const track = document.getElementById('marquee-track');
-  if (!track) return;
-
-  window.__techImgFallback = function (img, ai, color) {
-    const shape = ai
-      ? '<circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/>'
-      : '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12h8M8 8h5M8 16h5"/>';
-
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'ic');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', color);
-    svg.setAttribute('stroke-width', '2');
-    svg.innerHTML = shape;
-    img.replaceWith(svg);
-  };
-
-  const chip = (t) => `
-    <div class="tech-chip ${t.ai ? 'ai-chip' : ''}">
-      <img class="ic-img" src="${t.png}" alt=""
-        onerror="window.__techImgFallback(this, ${!!t.ai}, '${t.c}')">
-      <span>${t.n}</span>
-    </div>`;
-
-  const html = techs.map(chip).join('');
-  track.innerHTML = html + html;
+  sections.forEach((s) => spy.observe(s));
 })();
 
 /* ============================================================
-   4. PROJECT CARDS — build + 3D tilt on hover
+   4. FERRAMENTAS
+   ============================================================ */
+(function tools() {
+  const list = $('#tool-list');
+  if (!list) return;
+
+  list.innerHTML = TOOLS.map((t) => `
+    <li class="tool">
+      <img src="${esc(t.icon)}" alt="" width="20" height="20" loading="lazy" data-initial="${esc(t.name.charAt(0))}">
+      <span>${esc(t.name)}</span>
+    </li>`).join('');
+
+  // Se o ícone não carregar, mostra a inicial no lugar
+  $$('img', list).forEach((img) => {
+    img.addEventListener('error', () => {
+      const fb = document.createElement('span');
+      fb.className = 'tool-fallback';
+      fb.setAttribute('aria-hidden', 'true');
+      fb.textContent = img.dataset.initial;
+      img.replaceWith(fb);
+    }, { once: true });
+  });
+})();
+
+/* ============================================================
+   5. PROJETOS
    ============================================================ */
 (function projects() {
-  const data = [
-    {
-      tag: ['Power BI', 'SQL', 'Excel'],
-      title: 'Implantação de Power BI',
-      desc: 'Centralizei dados que estavam distribuídos entre Excel, SQL e SharePoint. Modelagem, relacionamentos e medidas DAX reduziram em 80% o tempo de atualização dos relatórios.<br><span class="obs-text">Obs: Dados alterados para números fictícios.</span>',
-      image: 'Implantação de Power BI.png'
-    },
-    {
-      tag: ['n8n', 'Automação'],
-      title: 'Automação de Processos com n8n',
-      desc: 'Fluxos automáticos de atendimento via WhatsApp, processamento de imagens, comunicação interna e integração de sistemas, reduzindo tarefas manuais e padronizando processos.',
-      image: 'Automação de Processos com n8n.png'
-    },
-    {
-      tag: ['Power BI', 'DAX', 'SQL', 'Python'],
-      title: 'Painéis de Vendas e Estoque',
-      desc: 'Reativação e desenvolvimento de dashboards de vendas na Softplan, com medidas DAX, consultas SQL e rotinas em Python — visão rápida de desempenho por vendedor e produto. <br><span class="obs-text">Obs: Dados e logo foram alterados para números fictícios.</span>',
-      image: 'Painéis de Vendas e Estoque.png'
-    }
-  ];
-
-  const grid = document.getElementById('projects-grid');
+  const grid = $('#projects-grid');
   if (!grid) return;
 
-  grid.innerHTML = data.map((p) => `
-    <article class="proj-card glass reveal">
-      <div class="proj-thumb">
-        <img src="${p.image}" alt="${p.title}" class="proj-img" />
-      </div>
-      <div class="proj-body">
-        <div class="proj-tags">${p.tag.map((t) => `<span>${t}</span>`).join('')}</div>
-        <h3>${p.title}</h3>
-        <p>${p.desc}</p>
-        <div class="proj-links">
-          <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>Ver demo</a>
-          <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.3 3.3 0 0 0-1-2.5c3 0 6-2 6-5.5.1-1.3-.4-2.6-1.3-3.5.4-1.2.4-2.5 0-3.5 0 0-1 0-3 1.2a11 11 0 0 0-6 0C8 2 7 2 7 2c-.4 1-.4 2.3 0 3.5A5.4 5.4 0 0 0 5.7 9c0 3.5 3 5.5 6 5.5-.4.4-.7.9-.8 1.4-.2.5-.3 1.1-.2 1.6v3.9"/></svg>Ver detalhes</a>
+  const linkIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
+
+  grid.innerHTML = PROJECTS.map((p) => {
+    const links = [
+      p.demo ? `<a href="${esc(p.demo)}" target="_blank" rel="noopener noreferrer">Ver projeto ${linkIcon}</a>` : '',
+      p.repo ? `<a href="${esc(p.repo)}" target="_blank" rel="noopener noreferrer">Código no GitHub ${linkIcon}</a>` : ''
+    ].join('');
+
+    return `
+      <article class="project" data-reveal>
+        <button type="button" class="project-thumb" data-full="${esc(p.image)}" data-alt="${esc(p.title)}"
+          aria-label="Ampliar imagem do projeto ${esc(p.title)}">
+          <img src="${esc(p.image)}" alt="" loading="lazy" decoding="async" width="800" height="500">
+          <span class="zoom-hint" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>
+            Ampliar
+          </span>
+        </button>
+        <div class="project-body">
+          <h3>${esc(p.title)}</h3>
+          <p class="project-desc">${esc(p.desc)}</p>
+          ${p.note ? `<p class="project-note">${esc(p.note)}</p>` : ''}
+          <ul class="project-tags" aria-label="Tecnologias usadas">
+            ${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}
+          </ul>
+          ${links ? `<div class="project-links">${links}</div>` : ''}
         </div>
-      </div>
-    </article>`).join('');
-
-  const newCards = grid.querySelectorAll('.proj-card');
-  if (window.initScrollReveal) {
-    window.initScrollReveal(newCards);
-  }
-
-  // --- LÓGICA PARA AMPLIAR A IMAGEM (LIGHTBOX) ---
-  const lightbox = document.getElementById('img-lightbox');
-  const lightboxImg = document.getElementById('lightbox-img');
-
-  if (lightbox && lightboxImg) {
-    // Clique na imagem do card
-    grid.querySelectorAll('.proj-img').forEach((img) => {
-      img.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evita conflitos com outros eventos
-        lightboxImg.src = img.src;
-        lightboxImg.alt = img.alt;
-        lightbox.classList.add('active');
-      });
-    });
-
-    // Fechar ao clicar no fundo preto ou no 'X'
-    lightbox.addEventListener('click', () => {
-      lightbox.classList.remove('active');
-    });
-
-    // Fechar com a tecla ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') lightbox.classList.remove('active');
-    });
-  }
-
-  // Tilt effect (desktop only)
-  if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
-    newCards.forEach((card) => {
-      card.addEventListener('mousemove', (e) => {
-        const r = card.getBoundingClientRect();
-        const px = (e.clientX - r.left) / r.width - 0.5;
-        const py = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(700px) rotateX(${(-py * 7).toFixed(2)}deg) rotateY(${(px * 7).toFixed(2)}deg) translateY(-4px)`;
-      });
-
-      card.addEventListener('mouseleave', () => {
-        card.style.transform = '';
-      });
-    });
-  }
+      </article>`;
+  }).join('');
 })();
 
 /* ============================================================
-   5. MODALS (open/close, focus trap básico, esc to close)
+   6. ANIMAÇÃO DE ENTRADA DAS SEÇÕES
    ============================================================ */
-(function modals() {
-  const openers = document.querySelectorAll('[data-open]');
-  const closers = document.querySelectorAll('[data-close]');
-  let lastFocused = null;
+(function reveal() {
+  const els = $$('[data-reveal]');
+  if (!els.length) return;
 
-  function open(id) {
-    const m = document.getElementById(id);
-    if (!m) return;
-    lastFocused = document.activeElement;
-    m.classList.add('open');
-    document.body.style.overflow = 'hidden';
-
-    const closeBtn = m.querySelector('.modal-close');
-    if (closeBtn) closeBtn.focus();
+  if (reduceMotion || !('IntersectionObserver' in window)) {
+    els.forEach((el) => el.classList.add('in'));
+    return;
   }
 
-  function closeAll() {
-    document.querySelectorAll('.modal-overlay.open').forEach((m) => m.classList.remove('open'));
+  // Pequeno atraso em cascata para itens irmãos (cards, vagas)
+  els.forEach((el) => {
+    const siblings = Array.from(el.parentElement.children).filter((c) => c.hasAttribute('data-reveal'));
+    const i = siblings.indexOf(el);
+    if (i > 0) el.style.setProperty('--reveal-delay', `${Math.min(i, 4) * 80}ms`);
+  });
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  els.forEach((el) => io.observe(el));
+})();
+
+/* ============================================================
+   7. MODAIS (abrir, fechar, foco preso dentro, Esc)
+   ============================================================ */
+const Modal = (function () {
+  let current = null;
+  let lastFocused = null;
+  const FOCUSABLE = 'a[href], button:not([disabled]), input, textarea, select, iframe, [tabindex]:not([tabindex="-1"])';
+
+  function open(el) {
+    if (!el) return;
+    if (current) close();
+    lastFocused = document.activeElement;
+    current = el;
+    el.hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => el.classList.add('open'));
+    const first = $('.modal-close, .lightbox-close', el) || $(FOCUSABLE, el);
+    if (first) first.focus();
+  }
+
+  function close() {
+    if (!current) return;
+    const el = current;
+    current = null;
+    el.classList.remove('open');
     document.body.style.overflow = '';
+    setTimeout(() => { el.hidden = true; }, reduceMotion ? 0 : 250);
     if (lastFocused) lastFocused.focus();
   }
 
-  openers.forEach((btn) => btn.addEventListener('click', () => open(btn.dataset.open)));
-  closers.forEach((btn) => btn.addEventListener('click', closeAll));
-
-  document.querySelectorAll('.modal-overlay').forEach((ov) => {
-    ov.addEventListener('click', (e) => {
-      if (e.target === ov) closeAll();
-    });
-  });
-
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAll();
+    if (!current) return;
+    if (e.key === 'Escape') {
+      close();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const items = $$(FOCUSABLE, current).filter((n) => n.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
+
+  $$('[data-open]').forEach((btn) => btn.addEventListener('click', () => open(document.getElementById(btn.dataset.open))));
+  $$('[data-close]').forEach((btn) => btn.addEventListener('click', close));
+  $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) close(); }));
+
+  return { open, close };
 })();
 
 /* ============================================================
-   6. LAUDOS: TABS + DOC VIEWER + ZOOM
+   8. LIGHTBOX DAS IMAGENS DOS PROJETOS
    ============================================================ */
-(function laudos() {
-  const tabs = document.querySelectorAll('#laudo-tabs .tab-btn');
-  const panels = document.querySelectorAll('.tab-panel');
+(function lightbox() {
+  const box = $('#lightbox');
+  const img = $('#lightbox-img');
+  const grid = $('#projects-grid');
+  if (!box || !img || !grid) return;
 
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      tabs.forEach((t) => t.classList.remove('active'));
-      panels.forEach((p) => p.classList.remove('active'));
-      tab.classList.add('active');
-      const targetPanel = document.getElementById(tab.dataset.tab);
-      if (targetPanel) targetPanel.classList.add('active');
-    });
+  grid.addEventListener('click', (e) => {
+    const thumb = e.target.closest('.project-thumb');
+    if (!thumb) return;
+    img.src = thumb.dataset.full;
+    img.alt = thumb.dataset.alt;
+    Modal.open(box);
   });
 
-  panels.forEach((panel, idx) => {
+  box.addEventListener('click', () => Modal.close());
+})();
+
+/* ============================================================
+   9. LAUDOS: abas, carregamento sob demanda e zoom
+   ============================================================ */
+(function laudos() {
+  const tabs = $$('#modal-laudos .tab');
+  const panels = $$('#modal-laudos .tab-panel');
+  if (!tabs.length) return;
+
+  function buildViewer(panel) {
+    if (panel.dataset.ready) return;
+    panel.dataset.ready = '1';
     const src = panel.dataset.doc;
-    if (!src) return;
+    const url = encodeURI(src);
     let zoom = 1;
 
     panel.innerHTML = `
       <div class="doc-viewer">
         <div class="doc-toolbar">
-          <span class="mono" style="font-size:.78rem;color:var(--text-dim);">${src.split('/').pop()}</span>
-          <div class="zoom-controls">
-            <button data-zoom="out" aria-label="Diminuir zoom">−</button>
-            <span data-zoom-val>100%</span>
-            <button data-zoom="in" aria-label="Aumentar zoom">+</button>
-            <a class="btn" style="padding:8px 14px;" href="${src}" download>Baixar PDF</a>
+          <span class="doc-name">${esc(src)}</span>
+          <div class="doc-controls">
+            <button type="button" data-zoom="out" aria-label="Diminuir zoom">−</button>
+            <output aria-live="polite">100%</output>
+            <button type="button" data-zoom="in" aria-label="Aumentar zoom">+</button>
+            <a class="btn btn-small" href="${url}" target="_blank" rel="noopener">Abrir em nova aba</a>
+            <a class="btn btn-small" href="${url}" download>Baixar PDF</a>
           </div>
         </div>
-        <div class="doc-frame-wrap">
-          <iframe src="${src}" title="Laudo médico ${idx + 1}" loading="lazy"
-            onerror="this.parentElement.innerHTML='<div class=doc-fallback>Não foi possível carregar o PDF. Verifique se o arquivo existe em <code>${src}</code>.</div>'"></iframe>
+        <div class="doc-frame">
+          <div class="doc-loading"><span>Carregando documento</span></div>
+          <iframe src="${url}" title="${esc(src)}"></iframe>
         </div>
       </div>`;
 
-    const frame = panel.querySelector('iframe');
-    const valEl = panel.querySelector('[data-zoom-val]');
+    const frameWrap = $('.doc-frame', panel);
+    const frame = $('iframe', panel);
+    const out = $('output', panel);
 
-    panel.querySelectorAll('[data-zoom]').forEach((btn) => {
+    frame.addEventListener('load', () => frameWrap.classList.add('loaded'), { once: true });
+    // Garante que o indicador some mesmo se o navegador não disparar "load" para PDF
+    setTimeout(() => frameWrap.classList.add('loaded'), 4000);
+
+    $$('[data-zoom]', panel).forEach((btn) => {
       btn.addEventListener('click', () => {
-        zoom = btn.dataset.zoom === 'in' ? Math.min(zoom + 0.2, 2.4) : Math.max(zoom - 0.2, 0.5);
-        if (frame) frame.style.transform = `scale(${zoom})`;
-        if (valEl) valEl.textContent = Math.round(zoom * 100) + '%';
+        zoom = btn.dataset.zoom === 'in' ? Math.min(zoom + 0.2, 2.4) : Math.max(zoom - 0.2, 0.6);
+        frame.style.transform = `scale(${zoom})`;
+        out.textContent = Math.round(zoom * 100) + '%';
       });
+    });
+  }
+
+  function select(tab) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+    });
+    panels.forEach((p) => {
+      const on = p.id === tab.getAttribute('aria-controls');
+      p.hidden = !on;
+      if (on) buildViewer(p);
+    });
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab));
+    tab.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      select(next);
+    });
+  });
+
+  // Só carrega os PDFs quando o modal é aberto pela primeira vez
+  $$('[data-open="modal-laudos"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const active = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      select(active);
     });
   });
 })();
 
 /* ============================================================
-   7. FORMULÁRIO DE CONTATO → WHATSAPP
+   10. FORMULÁRIO DE CONTATO → WHATSAPP
    ============================================================ */
 (function waForm() {
-  const OWNER_WHATSAPP = '5561991333574';
-
-  const form = document.getElementById('wa-form');
-  const status = document.getElementById('wa-status');
+  const form = $('#wa-form');
+  const status = $('#wa-status');
   if (!form) return;
+
+  const setStatus = (msg, type) => {
+    status.textContent = msg;
+    status.className = type;
+  };
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const name = form.name.value.trim();
-    const phone = form.phone.value.trim();
-    const message = form.message.value.trim();
+    const fields = [form.elements.name, form.elements.phone, form.elements.message];
+    let firstEmpty = null;
 
-    if (!name || !phone || !message) {
-      if (status) {
-        status.textContent = 'Preencha nome, WhatsApp e mensagem antes de enviar.';
-        status.className = 'err';
-      }
+    fields.forEach((f) => {
+      const empty = !f.value.trim();
+      f.setAttribute('aria-invalid', String(empty));
+      if (empty && !firstEmpty) firstEmpty = f;
+    });
+
+    if (firstEmpty) {
+      setStatus('Preencha nome, WhatsApp e mensagem antes de enviar.', 'err');
+      firstEmpty.focus();
       return;
     }
 
-    const text =
-      `Olá, meu nome é ${name}.
-Meu WhatsApp: ${phone}
+    const [name, phone, message] = fields.map((f) => f.value.trim());
+    const text = `Olá, meu nome é ${name}.\nMeu WhatsApp: ${phone}\n\nMensagem:\n${message}`;
+    window.open(`https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 
-Mensagem:
-${message}`;
-
-    const url = `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank', 'noopener');
-
-    if (status) {
-      status.textContent = 'Abrindo o WhatsApp com sua mensagem pronta...';
-      status.className = 'ok';
-    }
+    setStatus('Abrindo o WhatsApp com a sua mensagem pronta.', 'ok');
     form.reset();
+    fields.forEach((f) => f.removeAttribute('aria-invalid'));
+  });
+
+  form.addEventListener('input', (e) => {
+    if (e.target.value.trim()) e.target.removeAttribute('aria-invalid');
   });
 })();
